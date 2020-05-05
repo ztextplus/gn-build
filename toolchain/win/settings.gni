@@ -72,7 +72,7 @@ if (cached_toolchain_data != "") {
                                ],
                                "scope")
 }
-
+#print(toolchain_data)
 visual_studio_version = toolchain_data.visual_studio_version
 visual_studio_path = toolchain_data.visual_studio_path
 

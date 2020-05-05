@@ -341,6 +341,7 @@ if (is_win) {
     "//build/config/win:nominmax",
     "//build/config/win:winver",
     "//build/config/win:vs_code_analysis",
+    "//build/config/win:unicode",
   ]
 }
 

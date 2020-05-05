@@ -97,7 +97,7 @@ def _ProcessSpawnResult(proc):
   return out
 
 
-def _BuildToolchainSetupCommand(vs_path, cpu, sdk_version, is_uwp=False):
+def _BuildToolchainSetupCommand(vs_path, cpu, sdk_version, is_uwp=False,version_as_year=0):
   """Returns a dictionary with environment variables that must be set while
   running binaries from the toolchain (e.g. INCLUDE and PATH for cl.exe)."""
   # Check if we are running in the SDK command line environment and use
@@ -119,6 +119,8 @@ def _BuildToolchainSetupCommand(vs_path, cpu, sdk_version, is_uwp=False):
   if (cpu != 'x64'):
     # x64 is default target CPU thus any other CPU requires a target set
     arch_name += '_' + cpu
+  if version_as_year == '2008':
+    arch_name = cpu
 
   args = [script_path, arch_name]
   if sdk_version and sdk_version != 'default':
@@ -162,6 +164,7 @@ def _GetClangMscVersionFromYear(version_as_year):
   # Corresponds to the _MSC_VER value listed here:
   # https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros
   year_to_version = {
+    '2008': '1500',
     '2013': '1800',
     '2015': '1900',
     '2017': '1910',
@@ -209,6 +212,7 @@ def DetectVisualStudioPath(version_as_year):
   """
 
   year_to_version = {
+    '2008': '9.0',
     '2013': '12.0',
     '2015': '14.0',
     '2017': '15.0',
@@ -275,6 +279,8 @@ def GetVsPath(version_as_year):
 def SetupToolchain(version_as_year, vs_path, sdk_version=None,
                    clang_base_path=None, clang_msc_ver=None):
   cpus = ('x86', 'x64', 'arm', 'arm64')
+  if version_as_year == '2008':
+     cpus = ('x86', 'x64')
 
   # vcvarsall.bat for VS 2017 fails if run after running vcvarsall.bat from
   # VS 2013 or VS 2015. Fix this by clearing the vsinstalldir environment
@@ -291,12 +297,16 @@ def SetupToolchain(version_as_year, vs_path, sdk_version=None,
   processes = {}
   for (cpu, is_uwp) in itertools.product(cpus, (False, True)):
     suffix = '_uwp' if is_uwp else ''
-    processes[cpu + suffix] = _Spawn(_BuildToolchainSetupCommand(vs_path, cpu, sdk_version, is_uwp))
-
+    if version_as_year == '2008' and is_uwp:
+      continue
+    processes[cpu + suffix] = _Spawn(_BuildToolchainSetupCommand(vs_path, cpu, sdk_version, is_uwp,version_as_year))
+  
   windows_sdk_paths = {}
   envs = {}
   for (cpu, is_uwp) in itertools.product(cpus, (False, True)):
     name = cpu + ('_uwp' if is_uwp else '')
+    if version_as_year == '2008' and is_uwp:
+      continue
     # Extract environment variables for subprocesses.
     env = _ExtractImportantEnvironment(_ProcessSpawnResult(processes[name]))
     envs[name] = env
@@ -404,9 +414,13 @@ def SetupToolchain(version_as_year, vs_path, sdk_version=None,
   else:
     # TODO(tim): Do we want to support different toolchain versions for
     # different architectures?
-    msc_full_ver = _ParseClVersion(_ProcessSpawnResult(_Spawn(['cl'], env=envs['x86'])))
-    print('msc_ver = ' + gn_helpers.ToGNString(msc_full_ver // 100000))
-    print('msc_full_ver = ' + gn_helpers.ToGNString(msc_full_ver))
+    if version_as_year != '2008':
+      msc_full_ver = _ParseClVersion(_ProcessSpawnResult(_Spawn(['cl'], env=envs['x86'])))
+      print('msc_ver = ' + gn_helpers.ToGNString(msc_full_ver // 100000))
+      print('msc_full_ver = ' + gn_helpers.ToGNString(msc_full_ver))
+    else:
+      print('msc_ver = 15')
+      print('msc_full_ver = 150030729')
 
 
 def main():
